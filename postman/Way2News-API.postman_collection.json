@@ -1,0 +1,160 @@
+{
+  "info": {
+    "_postman_id": "1d3f52da-411c-4dc6-994d-c52daa5adcc8",
+    "name": "Way2News API",
+    "description": "Laravel mobile news API. Set baseUrl and phone. In local OTP test mode, debug_otp is returned in the OTP request response; successful OTP verification saves the bearer token automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api", "type": "string" },
+    { "key": "name", "value": "Postman Test User", "type": "string" },
+    { "key": "phone", "value": "+15550002222", "type": "string" },
+    { "key": "otp", "value": "", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "categoryId", "value": "1", "type": "string" },
+    { "key": "categorySlug", "value": "technology", "type": "string" },
+    { "key": "newsId", "value": "1", "type": "string" },
+    { "key": "newsSlug", "value": "demo-news-story", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Request OTP (register or login)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"name\": \"{{name}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/otp/request"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('OTP request accepted', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "if (body.debug_otp) pm.collectionVariables.set('otp', body.debug_otp);"
+            ] }
+          }]
+        },
+        {
+          "name": "Test Login (local OTP verify)",
+          "request": {
+            "description": "POST /auth/otp/verify. Run Request OTP first; local test mode captures debug_otp into the otp collection variable. This returns the bearer token and saves it for authenticated requests.",
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"{{otp}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/otp/verify"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('OTP verification succeeded', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Login response includes bearer token and user', function () { pm.expect(body.token).to.be.a('string').and.not.empty; pm.expect(body.token_type).to.eql('Bearer'); pm.expect(body.user.phone).to.eql(pm.collectionVariables.get('phone')); });",
+              "if (body.token) pm.collectionVariables.set('token', body.token);"
+            ] }
+          }]
+        },
+        {
+          "name": "Current user",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/auth/me" }
+        },
+        {
+          "name": "Logout current token",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/auth/logout" }
+        }
+      ]
+    },
+    {
+      "name": "Public News",
+      "item": [
+        {
+          "name": "List news (paginated)",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/news?per_page=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('News feed loads', function () { pm.response.to.have.status(200); });",
+            "const body = pm.response.json();",
+            "if (body.data && body.data.length) pm.collectionVariables.set('newsSlug', body.data[0].slug);"
+          ] } }]
+        },
+        {
+          "name": "Search news",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/news?q=demo&per_page=10" }
+        },
+        {
+          "name": "News detail (opens article_url in app)",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/news/{{newsSlug}}" }
+        },
+        {
+          "name": "List categories",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/categories" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const body = pm.response.json();",
+            "if (body.data && body.data.length) pm.collectionVariables.set('categorySlug', body.data[0].slug);"
+          ] } }]
+        },
+        {
+          "name": "News by category",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/categories/{{categorySlug}}/news?per_page=20" }
+        }
+      ]
+    },
+    {
+      "name": "Admin: News (requires seeded admin phone)",
+      "item": [
+        {
+          "name": "List all news including drafts",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/news" }
+        },
+        {
+          "name": "Create news",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"category_id\": {{categoryId}},\n  \"title\": \"Postman test story\",\n  \"summary\": \"Test summary shown below the image in the Android app.\",\n  \"image_url\": \"https://example.com/news-image.jpg\",\n  \"article_url\": \"https://example.com/news-story\",\n  \"source_name\": \"Test source\",\n  \"is_published\": true,\n  \"published_at\": \"2026-10-12T12:00:00Z\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/admin/news" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) { const body = pm.response.json(); pm.collectionVariables.set('newsId', body.data.id); pm.collectionVariables.set('newsSlug', body.data.slug); }"
+          ] } }]
+        },
+        {
+          "name": "Update news",
+          "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated Postman test story\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/admin/news/{{newsId}}" }
+        },
+        {
+          "name": "Delete news",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/news/{{newsId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Admin: Categories (requires seeded admin phone)",
+      "item": [
+        {
+          "name": "List categories for admin",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/categories" }
+        },
+        {
+          "name": "Create category",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Test Category\",\n  \"slug\": \"postman-test-category\",\n  \"is_active\": true\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/admin/categories" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201 || pm.response.code === 200) pm.collectionVariables.set('categoryId', pm.response.json().data.id);"
+          ] } }]
+        },
+        {
+          "name": "Update category",
+          "request": { "method": "PATCH", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Postman Category\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/admin/categories/{{categoryId}}" }
+        },
+        {
+          "name": "Delete category",
+          "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/categories/{{categoryId}}" }
+        }
+      ]
+    }
+  ]
+}
