@@ -40,14 +40,14 @@
             "script": { "type": "text/javascript", "exec": [
               "pm.test('OTP request accepted', function () { pm.response.to.have.status(200); });",
               "const body = pm.response.json();",
-              "if (body.debug_otp) pm.collectionVariables.set('otp', body.debug_otp);"
+              "if (body.otp || body.debug_otp) pm.collectionVariables.set('otp', body.otp || body.debug_otp);"
             ] }
           }]
         },
         {
           "name": "Test Login (local OTP verify)",
           "request": {
-            "description": "POST /auth/otp/verify. Run Request OTP first; local test mode captures debug_otp into the otp collection variable. This returns the bearer token and saves it for authenticated requests.",
+            "description": "POST /auth/otp/verify. Run Request OTP first. cPanel allowlisted test mode captures the generated otp automatically; local test mode captures debug_otp. This returns the bearer token and saves it for authenticated requests.",
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }],

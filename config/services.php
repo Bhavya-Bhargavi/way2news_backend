@@ -42,6 +42,7 @@ return [
     'otp' => [
         'expiry_minutes' => env('OTP_EXPIRY_MINUTES', 5),
         'test_mode' => env('OTP_TEST_MODE', false),
+        'test_phone' => env('OTP_TEST_PHONE'),
     ],
 
 ];

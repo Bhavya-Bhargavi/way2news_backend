@@ -52,6 +52,8 @@ Story create fields: `title`, `summary`, `article_url` are required. `category_i
 
 OTP values are stored hashed, expire after `OTP_EXPIRY_MINUTES` (default five), and are limited to five verification attempts. OTP requests are rate-limited. Infinito is not yet integrated: no provider API details or credentials were supplied, and production OTP requests fail closed until a real adapter is configured. The Laravel `MAIL_*` variables are unrelated to phone OTP and are not used by these API routes.
 
+For a temporary cPanel/Postman login test before SMS integration, set `OTP_TEST_MODE=true` and `OTP_TEST_PHONE` to exactly one non-admin test phone in the server `.env`. For that phone only, the request endpoint returns a random six-digit `otp` in its response and explicitly states that no SMS was sent. This bypasses SMS only for that single non-admin test account and is not safe for ongoing production login. After testing, set `OTP_TEST_MODE=false` and clear `OTP_TEST_PHONE`.
+
 Admin access is granted by setting `ADMIN_PHONE` and running the database seeder. Do not make an admin role editable through public registration.
 
 ## Tests
@@ -68,7 +70,7 @@ php -d "extension=$phpExt\php_sqlite3.dll" -d "extension=$phpExt\php_pdo_sqlite.
 Use PHP 8.2+ and enable `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `tokenizer`, and `xml` in cPanel MultiPHP INI Editor. Prefer storing the Laravel project outside the web root (for example `/home/CPANEL_USER/way2news_backend`) and setting the domain document root to that project's `public/` directory. Do not make the Laravel project root, `.env`, `vendor/`, or `storage/` directly web-accessible. If cPanel cannot point the domain to `public/`, keep the application outside `public_html`, copy only the contents of Laravel's `public/` into the web root, and update `index.php` paths to the private project directory.
 
 1. Upload the project and `vendor/` folder, or upload source and run `composer install --no-dev --optimize-autoloader` over SSH/Terminal.
-2. Create a MySQL database and database user in cPanel, assign the user to the database, then configure `.env` with production values: `APP_ENV=production`, `APP_DEBUG=false`, the real `APP_URL`, and the cPanel database credentials. Keep `OTP_TEST_MODE=false`; configure the Infinito adapter before enabling public OTP login.
+2. Create a MySQL database and database user in cPanel, assign the user to the database, then configure `.env` with production values: `APP_ENV=production`, `APP_DEBUG=false`, the real `APP_URL`, and the cPanel database credentials. Keep `OTP_TEST_MODE=false` except for the documented short, allowlisted test; configure the Infinito adapter before enabling public OTP login.
 3. Generate `APP_KEY` once with `php artisan key:generate --force` and preserve it for future deployments. Never upload a development `.env` or commit production credentials.
 4. For a phpMyAdmin first push, select the new database and import `database_export.sql`. It creates the schema, starter categories, and Laravel migration history. Do not run `php artisan migrate` after this import. Set `ADMIN_PHONE` and run `php artisan db:seed --force` to grant that phone admin access. Alternatively, skip the SQL import and run `php artisan migrate --force` followed by `php artisan db:seed --force`; do not use both approaches on the same empty database.
 5. Ensure `storage/` and `bootstrap/cache/` are writable by the PHP process (typically `775`, subject to the host's ownership policy). Confirm `storage/logs/laravel.log` is writable.

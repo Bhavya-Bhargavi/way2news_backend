@@ -22,7 +22,20 @@ class AuthController extends Controller
             'name' => ['nullable', 'string', 'max:120'],
         ]);
 
+        $localTestMode = config('services.otp.test_mode') && app()->environment(['local', 'testing']);
+        $testPhone = (string) config('services.otp.test_phone');
+        $authorizedProductionTestMode = config('services.otp.test_mode')
+            && app()->environment('production')
+            && $testPhone !== ''
+            && hash_equals($testPhone, $validated['phone']);
+
+        if ($authorizedProductionTestMode && User::where('phone', $testPhone)->where('is_admin', true)->exists()) {
+            return response()->json(['message' => 'Test OTP is disabled for admin accounts.'], 403);
+        }
+
+        $testMode = $localTestMode || $authorizedProductionTestMode;
         $code = (string) random_int(100000, 999999);
+
         $challenge = OtpChallenge::updateOrCreate(
             ['phone' => $validated['phone']],
             [
@@ -34,7 +47,6 @@ class AuthController extends Controller
             ],
         );
 
-        $testMode = config('services.otp.test_mode') && app()->environment(['local', 'testing']);
         if (! $testMode) {
             try {
                 $sender->send($challenge->phone, $code);
@@ -47,8 +59,11 @@ class AuthController extends Controller
         }
 
         $response = ['message' => 'OTP requested.'];
-        if ($testMode) {
+        if ($localTestMode) {
             $response['debug_otp'] = $code;
+        } elseif ($authorizedProductionTestMode) {
+            $response['message'] = 'Test OTP generated; no SMS was sent.';
+            $response['otp'] = $code;
         }
 
         return response()->json($response, 200);
